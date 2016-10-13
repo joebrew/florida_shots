@@ -29,6 +29,9 @@ library(leaflet)
 library(ggmap)
 library(readxl)
 library(dplyr)
+library(lubridate)
+library(ggthemes)
+library(tidyr)
 
 # Basic knitr options
 opts_chunk$set(comment = NA, 
@@ -72,6 +75,28 @@ df <- rbind(df, old_df); rm(old_df)
 # Remove duplicates
 key <- paste0(df$name, df$date_vaccine)
 df <- df[!duplicated(key),]; rm (key)
+
+# Generate some new variables
+df$year <- lubridate::year(df$date_vaccine)
+df$month <- lubridate::month(df$date_vaccine)
+df$date <- df$date_vaccine
+
+# Flu season
+df$flu_season <- 
+  ifelse(df$month >= 8,
+         paste0(df$year, '-', df$year + 1),
+         paste0(df$year - 1, '-', df$year))
+
+# Remove those from the 2010-11 flu season
+df <- df %>%
+  filter(flu_season != '2010-2011')
+
+# Correct age
+df$age <- 
+  as.numeric(df$date_vaccine - df$dob) / 365.25
+
+# Years of age
+df$age_years <- round(df$age)
 ```
 
 # Introduction
@@ -109,6 +134,198 @@ Data were grouped by various variables, aggregated and are presented (both in vi
 
 # Results
 
+## Age distribution of Florida Shots records
+
+The below (smoothed) histogram shows the distribution of immunization recipients' age. There is a clear spike in the toddler age group, followed by a much lower density in the pre-k age group. Thereafter, the greatest number of immunizations are given to those of approximately 6-8 years of age, with a linear decline thereafter.
+
+```{r}
+ggplot(data = df,
+       aes(x = age)) +
+  geom_density(fill = 'darkblue', 
+               alpha = 0.6) +
+  xlab('Years of age') +
+  ylab('Density') +
+  ggtitle('Age distribution of immunization recipients',
+          'In Florida Shots data') +
+  theme_pander()
+```
+
+## Immunizations by year
+
+The below chart shows the number of immunizations by flu season.
+
+```{r}
+by_year <- 
+  df %>%
+  group_by(flu_season) %>% 
+  tally
+
+ggplot(data = by_year,
+       aes(x = flu_season,
+           y = n)) +
+  geom_bar(stat = 'identity',
+           fill = 'darkblue',
+           alpha = 0.6) +
+  theme_pander() +
+  xlab('Flu season') +
+  ylab('Immunizations') +
+  geom_label(aes(label = n))
+```
+
+## Immunizations by year and type
+
+The below chart shows the type of immunization given for each year.
+
+```{r}
+by_year_type <- 
+  df %>%
+  group_by(flu_season,
+           type_vaccine) %>% 
+  tally
+
+cols <- colorRampPalette(brewer.pal(9, 'Spectral'))(length(unique(df$type_vaccine)))
+ggplot(data = by_year_type,
+       aes(x = flu_season,
+           y = n,
+           group = type_vaccine,
+           fill = type_vaccine)) +
+  geom_bar(stat = 'identity',
+           alpha = 0.6,
+           position = 'dodge') +
+  theme_pander() +
+  xlab('Flu season') +
+  ylab('Immunizations') +
+  geom_label(aes(label = n)) +
+  scale_fill_manual(name = 'Vaccine type',
+                    values = cols) +
+  ggtitle('Immunizations by year',
+          'Grouped by vaccine type')
+```
+
+
+## Immunizations by year and administrator
+
+The below chart shows the number of immunizations given by private practitioners vs. CHD each year.
+
+```{r}
+by_year_type <- 
+  df %>%
+  group_by(flu_season,
+           administrator) %>% 
+  tally
+
+cols <- colorRampPalette(brewer.pal(9, 'Spectral'))(length(unique(df$administrator)))
+ggplot(data = by_year_type,
+       aes(x = flu_season,
+           y = n,
+           group = administrator,
+           fill = administrator)) +
+  geom_bar(stat = 'identity',
+           alpha = 0.6,
+           position = 'dodge') +
+  theme_pander() +
+  xlab('Flu season') +
+  ylab('Immunizations') +
+  geom_label(aes(label = n)) +
+  scale_fill_manual(name = 'Administrator',
+                    values = cols) +
+  ggtitle('Immunizations by year',
+          'Grouped by administrator')
+```
+
+## Immunizations by year and age group
+
+The below histograms show the distribution of age for each flu season's immunization recipients.
+
+```{r}
+by_year_type <- 
+  df %>%
+  group_by(flu_season,
+           age_years) %>% 
+  tally %>%
+  mutate(Age = age_years)
+
+cols <- colorRampPalette(brewer.pal(9, 'Spectral'))(length(unique(df$age_years)))
+ggplot(data = by_year_type,
+       aes(x = flu_season,
+           y = n,
+           group = Age,
+           fill = Age)) +
+  geom_bar(stat = 'identity',
+           alpha = 0.6,
+           position = 'dodge') +
+  theme_pander() +
+  xlab('Flu season') +
+  ylab('Immunizations') +
+  # scale_fill_manual(name = 'Age',
+  #                   values = cols) +
+  ggtitle('Immunizations by year',
+          'Grouped by years of age')
+```
+
+## Relative share of CHD vs. private practitioner by year
+
+The below chart shows the _relative_ (ie, percentage of all vaccines adminstered) share of immunizations by administrator.
+
+```{r}
+by_year_type <- 
+  df %>%
+  group_by(flu_season,
+           administrator) %>% 
+  tally %>%
+  mutate(p = n / sum(n) * 100)
+
+cols <- colorRampPalette(brewer.pal(9, 'Spectral'))(length(unique(df$administrator)))
+ggplot(data = by_year_type,
+       aes(x = flu_season,
+           y = p,
+           group = administrator,
+           fill = administrator)) +
+  geom_bar(stat = 'identity',
+           alpha = 0.6,
+           position = 'dodge') +
+  theme_pander() +
+  xlab('Flu season') +
+  ylab('Immunizations') +
+  geom_label(aes(label = paste0(round(p, digits = 2), '%'))) +
+  scale_fill_manual(name = 'Administrator',
+                    values = cols) +
+  ggtitle('Immunizations by year',
+          'Relative share, grouped by administrator')
+
+```
+
+## Correlation between CHD and privately administered immunizations
+
+Some practitioners worry that the Control Flu program "takes away business". The Florida Shots data suggest exactly the opposite. Years with more CHD-administered vaccinations generally correlate tightly with more privately administered vaccinations.
+
+```{r}
+temp <- spread(by_year_type %>% dplyr::select(-p),
+               key = administrator, 
+               value = n)
+
+ggplot(data = temp,
+       aes(x = CHD,
+           y = `Private Doctor`)) +
+  geom_point(alpha = 0.6, size = 6) +
+  geom_text(aes(label = gsub('-', '\n', flu_season)), alpha = 0.6) +
+  theme_bw() +
+  ggtitle('Correlation between CHD and private practitioners immunizations',
+          'The more the CHD administers, the more private practitioners administer')
+```
+
+
+```{r}
+# Write csv for nadia
+write_csv(df %>%
+            dplyr::select(name, dob,
+                          date_vaccine, 
+                          type_vaccine,
+                          administrator,
+                          flu_season,
+                          age),
+          '~/Desktop/florida_shots_2011_2016.csv')
+```
 # Next steps
 
 This document is a preliminary walk-through. Next steps include:
