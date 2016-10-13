@@ -1,0 +1,124 @@
+---
+title: Preliminary Florida Shots Report
+author: FDOH-Alachua Disease Control Unit 
+fig_height: 2.6
+fig_width: 4
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: yeti
+---
+```{r, echo = FALSE, warning = FALSE, message = FALSE, comment = NA, error= FALSE, cache = FALSE}
+# No scientific notation
+options(scipen=999)
+
+# Packages 
+library(xtable)
+library(knitr)
+library(ggplot2) 
+# library(dplyr)
+library(rgeos)
+library(RColorBrewer)
+library(Rmisc)
+# Libraries
+library(rgdal)
+library(raster)
+library(sp)
+library(leaflet)
+library(ggmap)
+library(readxl)
+library(dplyr)
+
+# Basic knitr options
+opts_chunk$set(comment = NA, 
+               echo = FALSE, 
+               warning = FALSE, 
+               message = FALSE, 
+               error = TRUE, # Render report, even with errors
+               cache = F)
+
+```
+
+```{r setup, include=FALSE, echo = FALSE}
+library(knitr)
+knit_engines$set(asis = function(options) {
+  if (options$echo && options$eval) knit_child(text = options$code)
+})
+```
+
+```{r}
+# Source functions
+source('functions.R')
+```
+
+
+```{r}
+# Read in data for 2015-2016
+df <- read_in()
+
+# Clean up data for 2015-2016
+df <- clean_up(df)
+
+# Read in old data
+old_df <- read_in_old()
+
+# Clean up old data
+old_df <- clean_up_old(old_df)
+
+# Combine
+df <- rbind(df, old_df); rm(old_df)
+
+# Remove duplicates
+key <- paste0(df$name, df$date_vaccine)
+df <- df[!duplicated(key),]; rm (key)
+```
+
+# Introduction
+
+**Target audience:**
+
+This is a summary document, meant for internal use by the FDOH-Alachua Disease Control Unit, FDOH-Alachua leadership, and the Control Flu team. 
+
+**Purpose:**
+
+The purpose of this document is to provide an overview of the Florida Shots data provided to FDOH-Alachua by the State office, for the entire date range of data available (from January 3rd, 2011 through April 7, 2016). 
+
+**Objectives:**
+
+This document strives to answer three simple questions:
+
+1. How many vaccinations wree administered over the last 5 flu seasons?
+
+2. How many of those vaccinations were administered by the private vs. public sectors (practicioners vs. County Health Department (CHD))?
+
+3. What is vaccine coverage by age?
+
+# Methods
+
+Data were sent from the state office to FDOH-Alachua (via Nadia Kovacevich). These data were then cleaned and combined with previous Florida Shots data. The fields available in the raw data are:
+
+- Name
+- Date of birth
+- Date of immunization
+- Age at time of immunization
+- Type of vaccination (Live attenuated influenza vaccine vs. trivalent influenza vaccine; aka FluMist vs. Shot)
+- Administrator (Private Doctor vs. County Health Department)
+
+Data were grouped by various variables, aggregated and are presented (both in visual and tabular form) below.
+
+# Results
+
+# Next steps
+
+This document is a preliminary walk-through. Next steps include:
+
+1. Joining these data with Alachua County Public Schools data, so as to better estimate immunization coverage while fully accounting for those students immunized outside of the Control Flu program (ie, by private practitioners).
+
+2. Joining these data to census data, so as to estimate "denominators" for each group, and get immunization rates (rather than raw numbers, as presented here).
+
+3. Update Control Flu and FDOH-Alachua presentation and other public-facing materials, so as to make sure that charts, tables, and other references to Alachua immunization rates go through the most recent data available.
+
+4. Passing on the raw (but cleaned) data to the appropriate FDOH-Alachua staff, so that Florida Shots data are retrievable, understandable, and useful in the future.
+
+5. Requesting (soon) that we continue to receive Florida Shots data in the future, in this same format, so that this analysis can be reproduced.
